@@ -1,0 +1,297 @@
+---
+title: "Lab 4"
+author: "STA 206 | Fall 2022"
+date: "October 17, 2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Hat Matrix
+
+We will continue with the same example of using matrices in regression.
+
+```{r}
+dt = matrix(c(42, 33, 75, 28, 91, 55, 7, 4, 16, 3, 21, 8), 6, 2)
+colnames(dt) = c('Y', 'X')
+
+Y = dt[,1] # create response variable
+n = length(Y) # number of obeservations
+n = dim(dt)[1]
+
+X = cbind(rep(1,n), dt[,2]) #design matrix
+X
+```
+
+We can find the hat matrix, and check some of its properties (it should be
+symmetric and idempotent, and it should have rank $p = 2$). Recall
+$$\mathbf{H = X(X'X)^{-1}X'}$$
+
+```{r}
+H = X %*% solve(t(X) %*% X, t(X)) # hat matrix
+H
+
+library(Matrix) # load required package
+rankMatrix(H)[1] ##Rank 2
+
+all.equal(H,t(H))  #Symmetric
+
+all.equal(H,H %*% H) #Idempotent
+
+eigen(H)$values # eigenvalues are 1 and 0
+```
+
+So, all the properties of Hat matrix are satisfied. Also note that, the diagonal elements of $H$ are all in between 0 and 1, and the off-diagonals are non-zero.
+
+
+Now we can obtain the fitted values, residuals, SSE and MSE. Recall
+$$\mathbf{\hat{Y} = HY, e = Y-\hat{Y}}, SSE = \sum_{i=1}^n e_i^2, MSE = \frac{SSE}{n-2}$$
+```{r}
+Yhat = H %*% Y # fitted values
+e = Y - Yhat # residuals
+SSE = sum(e^2) # SSE
+MSE = SSE/(n-2) # MSE
+```
+
+What is the estimated covariance between the residuals of the first two cases? What is the estimated variance of the 2nd fitted value? 
+
+## Matrix in R
+
+A matrix is a 2 dimensional array of numbers. We will first look into some basic matrix operations.
+
+```{r}
+##Create matrix
+mat1 = matrix(1:12, nrow = 3, ncol = 4)
+mat1
+
+##Accessing the (3,2)th element of mat1
+mat1[3,2]
+
+##Accessing the 3rd row of mat1
+mat1[3, ]
+
+##Accessing the 2nd column of mat1
+mat1[ ,2]
+```
+Note that in R, matrix enters the elements columnwise by default. To know more, go to matrix help (?matrix).
+
+Now we will focus on matrix operations in linear regression. We have obtained the following data:
+```{r}
+#case Y  X
+#1    42 7
+#2    33 4
+#3    75 16
+#4    28 3
+#5    91 21
+#6    55 8
+
+```
+
+Let's start by first inputting the data into R, and then renaming the columns so that
+we don't get the variables confused:
+```{r}
+dt = matrix(c(42, 33, 75, 28, 91, 55, 7, 4, 16, 3, 21, 8), 6, 2)
+colnames(dt) = c('Y', 'X')
+```
+
+We have learned how to draw the scatter plot using the function `plot` to see what
+our data look like. In fact, we do have other ways of seeing how the variables are
+related (they are widely used in multiple linear regression):
+
+```{r}
+pairs(dt) ## pairwise scatter plots
+cor(dt) ## pairwise correlation matrix
+```
+
+Now that we have an idea about what our data look like, let's perform simple linear regression using matrix algebra in R. The first step is to specify the response vector $Y$ and the design matrix $\mathbf{X}$ (notice here the dimensions of $\mathbf{X}$ are $n \times 2$, where 2 is the number of regression coefficients in our model (including intercept)).
+
+```{r}
+Y = dt[,1] # create response variable
+n = length(Y) # number of obeservations
+
+X = cbind(rep(1,n), dt[,2]) #design matrix
+X
+```
+
+Recall that the last line of code is saying "make a matrix that puts together a column of ones, along with columns 2 of our data." Similarly, we can use the `model.matrix` function:
+
+```{r}
+X = model.matrix( dt[,1] ~ dt[,2] )
+X
+```
+
+`model.matrix` is also useful for generating design matrices for higher-order terms e.g.
+
+```{r}
+model.matrix( dt[,1] ~ dt[,2]+I(dt[,2]^2) )
+```
+
+Now we have everything we need to find $\hat{\beta}$. We know that
+$$\hat{\beta} = (X'X)^{-1}X'Y$$
+
+Remember that $\hat{\beta}$ is now a 2 x 1 vector.
+
+```{r}
+#solve t(X) %*% X %*% beta = t(X) %*% y, for beta
+beta.hat = solve(t(X) %*% X, t(X) %*% Y)
+beta.hat
+```
+
+Let's check that it gives the same solution as the `lm` function. 
+
+```{r}
+lm(Y~X, data=as.data.frame(dt))
+```
+
+
+## Diagonal Matrices
+
+The function `diag` creates a diagonal matrix with a given vector:
+
+```{r}
+A=rep(1,times=3)
+A
+diag(A)
+
+```
+
+It can also extract the diagonal elements from a given matrix:
+
+```{r}
+X = matrix(1:9,3,3)
+X
+diag(X)
+
+diag( diag(X) )
+```
+
+In the previous lab, we have seen how to create matrices. Elements are inserted in a matrix column wise. We can specify the dimensions of the matrix which are the number of rows and number of columns.
+
+```{r}
+matrix( 0:1 , ncol=4, nrow=4 )
+matrix( 0:1, ncol=4, nrow=4, byrow=TRUE)
+```
+
+## Dimensions and Merging
+
+The function `dim` returns the dimension of a matrix. The first element is the number of rows and the second element is the number of columns.
+
+```{r}
+X = matrix(1:12,3,4)
+X
+dim(X)
+```
+
+Merging two matrices with appropriate dimensions can be done via `cbind` and `rbind`.
+
+```{r}
+Y = diag(1:3)
+Y
+cbind(X,Y) ##X and Y must have same number of rows
+
+##Question: Can we do rbind(X,Y) here?
+```
+
+For `rbind`, the two matrices must have the same number of columns.
+
+```{r}
+X1 = matrix(4:12, 3,3)
+rbind(X1, Y)
+```
+
+## Eigenvalues and Eigenvectors
+
+We can also use R to compute eigenvalues and/or eigenvectors. For example
+
+```{r}
+B = matrix( rnorm(10*5), nrow=10,ncol=5 )
+```
+
+Here, we calculate eigenvalue and eigenvectors of $B'B$:
+```{r}
+ans = eigen( t(B)%*%B )
+ans
+
+ans$values
+```
+
+Notice that all the eigenvalues are non-negative (why?).
+
+The column vectors in the above matrix "$vectors" are eigenvectors.
+
+Also, eigen has an option to only compute the values:
+```{r}
+eigen( t(B) %*% B, only.values = TRUE )
+```
+
+This is more efficient (for large matrices) if we are only interested in the eigenvalues.
+
+## `apply` Functions
+
+Apply functions are used to perform a task repeatedly on multiple chunks of the data. It avoids explicit uses of loop constructs and hence makes the code more concise and intention clearer. For more information look into the help: `?apply`.
+
+```{r}
+m1 = matrix(1:15, 3, 5)
+m1
+apply(m1, 1, mean)##across rows
+apply(m1, 2, sum)##across columns
+
+##can also work with user defined function
+
+apply(m1, 1, function(x) x+20.5)
+```
+
+Apply functions can also be applied to vectors.
+
+### `lapply`/`sapply` functions
+
+`lapply()` can be applied to lists, vectors or data frames and returns a list of same length as the original list. Each element of the output is the result of applying a function to the corresponding element of list.
+
+`sapply()` is a user-friendly version and wrapper of `lapply`. `sapply()` takes list, vector or data frame as input and gives output in vector or matrix.
+
+```{r}
+d1 = c("DAVIS", "VACAVILLE", "DIXON", "WOODLAND")
+lapply(d1, tolower)
+sapply(d1, tolower)
+```
+
+Another example when the input data is a list.
+
+```{r}
+d2 = list(29:35, 1:8)
+d2
+
+lapply(d2, mean)
+sapply(d2, mean)
+```
+
+**Exercise** For the list you created in the previous exercise, create another list where each element of the individual components is squared.
+
+
+## `outer` Function 
+
+`outer` function by default creates outer product of two vectors say, *X* and *Y*. The outcome is an array of dimension `c(dim(X), dim(Y))`.
+
+```{r}
+a1 = 1:4
+a2 = 6:12
+outer(a1, a2)
+a1%o%a2 ###alternative notation to outer product
+```
+
+The default function is product. However, it can perform other operations like sum or even can work on user defined function.
+
+```{r}
+outer(a1, a2, "+")###sum instead of product
+
+fun1 = function(x,y){
+  return(x^2+y^2)
+}
+
+outer(a1, a2, fun1)
+```
+

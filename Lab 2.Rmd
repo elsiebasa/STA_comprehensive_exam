@@ -1,0 +1,269 @@
+---
+title: "Lab 2"
+author: "STA 206 | Fall 2022"
+date: "October 3, 2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Fitting a simple linear regression model may seem easy and intuitive. But when the data set is large, doing the calculation manually gets tedious and may become impractical. Here, we will learn how we can use R to make things a lot easier.
+
+## Reading data into R
+
+Let's consider the *Copier maintenance* data. X denotes the
+number of copiers serviced, and Y denotes the number of minutes spent by the service person.
+We have data on 45 locations. We want to fit a simple regression model (this Lab) and examine whether it is  appropriate (next Lab).
+
+Save the data file (Copier.txt) to your local drive and remember the location/path of your file.
+
+```{r eval=FALSE}
+##### Set working directory
+setwd("D:/fall 2020/STA 206/Lab 2")
+##Alternatively, use the "Session" menu of R studio 
+```
+
+Then, read the data:
+```{r}
+##### Read in data
+copier = read.table("Copier.txt", header=FALSE)
+```
+
+We have now defined a *data frame* called **copier** and imported the dataset saved in "Copier.txt" into this data frame. Notice here "header=FALSE" means that in the text file "Copier.txt", there is no variable name in the "header" (the first row is data instead of variable name). If the text file contained variable names, we would have changed to "header=TRUE".
+
+If we had a csv file, we would use "read.csv". 
+
+```{r, eval=FALSE}
+copier = read.csv("Copier.csv", header=FALSE)
+```
+
+We can examine this object using *class* and *str* functions:
+```{r}
+class(copier)
+str(copier)
+```
+
+We can have a quick examination of the data using *head*,  *summary*, etc.,  functions in R.
+
+```{r}
+head(copier)
+summary(copier)
+```
+
+We can examine the data type of each variable by applying the *class* function to each variable:
+```{r}
+sapply(copier, class)
+```
+
+## Running Simple Linear Regression Using *lm* Function
+
+Now that data was read into R, we can see the two columns are automatically named V1 and V2
+respectively. V1 is number of minutes spent by service person (Y), and V2 is the number
+of copier machines (X). In the *lm* function, the response variable should be on the left side of the formula, and the X variable(s) should be on the right side of the formula. We are essentially fitting the model $Y = \beta_0 + \beta_1 X + \epsilon$. 
+
+```{r}
+##### Fitting
+fit = lm(V1~V2, data=copier)
+summary(fit)
+```
+
+## Inference of Regression Coefficients
+
+Suppose we want to test if the number of copier machines is significant in predicting the number of minutes spent by service person at significance level $0.05$:
+
+$$H_0: \beta_1 = 0 \; vs \; H_1: \beta_1 \neq 0$$
+We can calculate the test statistic
+
+$$ T = \frac{\hat{\beta}_1 - 0}{s(\hat{\beta}_1)}$$
+```{r}
+output = summary(fit)$coef
+output
+test1 = output[2,1]/output[2,2]
+qt(0.975, df = 43)
+```
+
+**Question**: What is the conclusion? Why we are computing t(0.975;43)?
+
+**Question**: How to test whether $\beta_1>0$ or not at significance level $0.05$? What is your conclusion?
+
+**Exercise**: Carry out a similar test for $\beta_0$ and draw conclusion.
+
+We can also directly read the T-tests results from the *summary* output. The standard errors of the estimators are also given in the *summary* output.  
+The "Multiple R-squared" in the *summary* output is the coefficient of determination, which is 0.9575
+here. The "Residual standard error" in the output gives the square root of MSE: So here  MSE  = $8.914^2 = 79.459$. 
+
+With the information given in the *summary* output, one should be able to
+construct confidence intervals for $\beta_0$ and $\beta_1$. For example, a 95% confidence interval for $\beta_1$ is
+
+$$\hat{\beta}_1 \pm t(1-\alpha/2; n-2)*s(\hat{\beta}_1) = 15.0352 \pm 0.9743$$
+```{r}
+15.0352 - qt(0.975,43) * 0.4831  # lower bound of 95% confidence interval for beta_1
+15.0352 + qt(0.975,43) * 0.4831  # upper bound of 95% confidence interval for beta_1
+```
+
+**Exercise**: Construct a 90% confidence interval for $\beta_0$.
+
+To see the LS estimator, residuals or fitted values we can use the following functions: 
+
+```{r}
+coef(fit)
+fit$coefficients
+
+residuals(fit)
+fit$residuals ##or equivalently
+
+fitted(fit)	
+fit$fitted
+
+fitted(fit)[5]	# fifth fitted value
+residuals(fit)[5]	# fifth residual
+```
+
+To see the anova table we can use the **anova** function.
+
+```{r}
+anova(fit)
+```
+
+
+## Finding Confidence and Prediction Intervals
+
+You can compute confidence intervals for mean response and make prediction intervals for new data using the *predict*
+function. We can see a prediction interval for a new observation is wider than the corresponding confidence interval for the mean response.
+
+```{r}
+##### Finding Prediction intervals
+newX=data.frame(V2=5)
+# interval specifies the type of intervals you want to obtain
+# level specifies the confidence level
+predict(fit, newX, interval='confidence', level=0.95) 
+predict(fit, newX, interval='confidence', level=0.99)
+predict(fit, newX, interval='prediction', level=0.95) 
+predict(fit, newX, interval='prediction', level=0.99)
+```
+
+## Saving and Loading
+
+To save the least squares model, simply type the following and give a file name easy to remember:
+
+```{r}
+save(fit,file='copier_fit.RData')
+```
+
+To load this saved file in the future, you need to open R console first, then
+double click on this file. Or, you can also type
+```{r}
+load("copier_fit.RData")
+```
+
+You can also save the entire R space by
+```{r}
+save.image(file="copier_all.RData")
+```
+
+## More about R plotting
+
+Here we go into more details about R plotting. More materials can be found
+in [http://www.harding.edu/fmccown/r/](http://www.harding.edu/fmccown/r/).
+First we'll produce a very simple graph using the values in the *cars* vector.
+Let's add a title, a line to connect the points, and some color:
+
+```{r}
+# Define the cars vector with 5 values
+cars <- c(1, 3, 6, 4, 9)
+
+# Graph cars using blue points overlayed by a line
+plot(cars, type="o", col="blue")
+
+# Create a title with a red, bold/italic font
+title(main="Autos", col.main="red", font.main=4)
+```
+
+Now let's add a red line for trucks and specify the y-axis range directly so it
+will be large enough to fit the truck data:
+
+```{r}
+# Define 2 vectors
+cars <- c(1, 3, 6, 4, 9)
+trucks <- c(2, 5, 4, 5, 12)
+
+# Graph cars using a y axis that ranges from 0 to 12
+plot(cars, type="o", col="blue", ylim=c(0, 12))
+
+# Graph trucks with red dashed line and square points
+lines(trucks, type="o", pch=22, lty=2, col="red")
+
+# Create a title with a red, bold/italic font
+title(main="Autos", col.main="red", font.main=4)
+```
+
+Next let's change the axes labels to match our data and add a legend. We'll also compute the y-axis values using the max function so any changes to our data will be automatically reflected in our graph.
+
+```{r}
+# Define 2 vectors
+cars <- c(1, 3, 6, 4, 9)
+trucks <- c(2, 5, 4, 5, 12)
+
+# Calculate range from 0 to max value of cars and trucks
+g_range <- range(0, cars, trucks)
+
+# Graph autos using y axis that ranges from 0 to max
+# value in cars or trucks vector. Turn off axes and
+# annotations (axis labels) so we can specify them ourself
+
+#png('cars_plot.png')###save the plot
+
+plot(cars, type="o", col="blue", ylim=g_range,
+axes=FALSE, ann=FALSE)
+
+# Make x axis using Mon-Fri labels
+axis(1, at=1:5, lab=c("Mon","Tue","Wed","Thu","Fri"))
+
+# Make y axis with horizontal labels that display ticks at
+# every 4 marks. 4*0:g_range[2] is equivalent to c(0,4,8,12).
+axis(2, las=1, at=4*0:g_range[2])
+
+# Create box around plot
+box()
+
+# Graph trucks with red dashed line and square points
+lines(trucks, type="o", pch=22, lty=2, col="red")
+
+# Create a title with a red, bold/italic font, and slightly larger
+title(main="Autos", col.main="red", font.main=4, cex.main=1.5)
+
+# Label the x and y axes with dark green text
+title(xlab="Days", col.lab=rgb(0,0.5,0))
+title(ylab="Total", col.lab=rgb(0,0.5,0))
+
+# Create a legend at topleft that is slightly smaller
+# (cex) and uses the same line colors and points used by
+# the actual plots
+legend("topleft", c("cars","trucks"), cex=0.8,
+col=c("blue","red"), pch=c(21,22), lty=c(1,2))
+```
+
+
+Change points and label size:
+
+```{r}
+plot(cars, type="o", col="blue", axes = FALSE, ann = FALSE, cex = 2)
+##cex changes the point size
+
+title(main="Autos", col.main="red", font.main=4, cex.main=1.5)
+axis(1, at=1:5, lab=c("Mon","Tue","Wed","Thu","Fri"), cex.axis = 1.5)
+##cex.axis changes the axis tick marks size
+axis(2, las=1, at=4*0:g_range[2])
+
+title(xlab="Days", col.lab=rgb(0,0.5,0))
+title(ylab="Total", col.lab=rgb(0,0.5,0), cex.lab = 1.5)
+##cex.lab changes the axis labels
+
+box()
+
+```
+

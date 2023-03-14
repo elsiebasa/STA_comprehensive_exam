@@ -1,0 +1,330 @@
+---
+title: "Lab 7: Regression with Catogorical Variables, Polynomial Regression"
+author: "STA 206 | Fall 2022"
+date: "November 7, 2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+In this lab, we will explore a data set about diabetes. This data consist of 19 variables on 403 subjects who were interviewed in a study to understand the prevalence of obesity, diabetes, and other risk factors in central Virginia for African Americans. According to Dr John Hong, Diabetes Mellitus Type II (adult onset diabetes) is associated most strongly with obesity. The waist/hip ratio may be a predictor in diabetes and heart disease. DM II is also associated with hypertension.
+
+### Read Data
+
+<!-- Sometimes the data comes with column names and sometimes it doesn't. For instance, the diabetes data has the column names as the first row. To tell R that the first row is just names and not data, --> 
+
+```{r}
+load("/Users/yanyuchen/Downloads/Lab7/diabetes.RData")
+```
+
+<!-- Also, sometimes the data will be separated by commas, instead of by white space. The default for *read.table()* is to look for white space to distinguish between variables, so if your data has commas instead, you can use the option sep = ','. A step before you do any analysis is to check the types of variables. "factor" means categorical variables; "integer" means integer valued variables; "numeric" means quantitative variables, etc.: -->
+
+```{r}
+sapply(diabetes,class) # find out what types of variables you have
+```
+
+Note that even though some of the variables are categorical, their class are indicated as "character" instead of "factor". Such variables in this case are `location`, `gender`, `frame`. So, we need to convert them to factors first.
+
+```{r}
+diabetes$location <- as.factor(diabetes$location)
+diabetes$gender <- as.factor(diabetes$gender)
+diabetes$frame <- as.factor(diabetes$frame)
+
+sapply(diabetes,class)
+```
+
+
+### Deal with Categorical Variables (Factors)
+
+Suppose we are interested in exploring a categorical variable from the diabetes data. Let's take a look at `frame`. To check how many levels `frame` has, and what their names are:
+
+```{r}
+levels(diabetes$frame)
+```
+
+R tells us that there are 4 levels, but one of them is without a label (missing value). We can check which observations have the " " label, and then we can use the `table` function to get counts of each factor level:
+
+```{r}
+which(diabetes$frame=='')
+table(diabetes$frame)
+```
+
+So 12 cases have a missing value for frame; 103 have the class "large", etc.
+
+Next, we can use this table to create a bar chart and a pie chart. 
+
+```{r}
+### bar chart
+barplot(table(diabetes$frame),col=rainbow(4),main='Frame: bar chart')
+### pie chart without percentages
+pie(table(diabetes$frame),col=c('blue','purple','green','yellow'),
+main='Frame: pie chart')
+
+```
+
+If you want to annotate the percentages in the pie chart, follow this: 
+
+```{r}
+### pie chart with percentages
+
+n <- nrow(diabetes)
+lbls <- c('NA','large','medium','small')
+pct <- round(100*table(diabetes$frame)/n)
+lab <- paste(lbls,pct)
+lab <- paste(lab,'%',sep='')
+lab
+
+pie(table(diabetes$frame),labels=lab,col=c('blue','purple','green','yellow'),
+main='Frame: pie chart with percentage')
+```
+
+We also might be interested in, say, how the `cholesterol` levels are distributed for the different `frame` levels. For this we might use side-by-side boxplots:
+
+```{r}
+boxplot(diabetes$chol~diabetes$frame,main='Cholesterol: side-by-side box plot by frame level',
+xlab='frame',ylab='cholesterol',col=rainbow(4))
+```
+
+### Manually Specify Dummy Variables 
+
+When we quantify a categorical variable with $r$ factor levels (classes), we use $r-1$  indicators, or dummy variables. You have seen in class that if a categorical variable only has 2 factor levels, then we only need one dummy variable. Here is how we can do this manually in R:
+
+```{r}
+n <- nrow(diabetes)# n is the sample size
+indicator <- rep(0,n) # start with a vector of 0's
+
+indicator[which(diabetes$gender=='male')] <- 1 # replace male entries with 1
+head(indicator)
+head(diabetes$gender)
+```
+
+Notice that the dummy variable matches with the gender variable. Now let's go back to the `frame` example. Here we have 3 different factor levels, so we are going to need 2 dummy variables. For the purposes of illustration, we will remove the observations where frame = " ", but we will see how to deal with the missing values in the next section.
+
+```{r}
+no.na=diabetes$frame[diabetes$frame != ''] # remove frame=''
+length(no.na) # get the new size
+```
+
+```{r}
+small <- rep(0,391) # start with 0's
+small[which(no.na=='small')] <- 1 # replace with 1's
+med <- rep(0,391)
+med[which(no.na=='medium')] <- 1
+head(cbind(small,med))
+```
+
+### Deal with Missing Values (NA) in Regression
+
+Not all data is complete. In this section we explore how we can deal with missing values using R. Here are some basic functions for dealing with NAs:
+```{r}
+summary(diabetes$bp.1s)
+is.na(diabetes$bp.1s)[1:10]
+```
+
+Notice that if we take the summary of the variable `bp.1s`, it tells us how many missing values there are. To R, NA is a distinct value that it can interpret. There might arise some occasions where your data does not have NA for missing values, but rather something like ' ' or '.'. In these cases it would be a good idea to replace those values with the standard NA that R can recognize. In our case, this problem arises with the `frame` variable:
+
+```{r}
+summary(diabetes$frame)
+which(diabetes$frame=='') # shows observation # of NA's
+is.na(diabetes$frame) <- which(diabetes$frame=='') # replaces '' with NA
+diabetes$frame <- droplevels(diabetes$frame) # takes away the old class ''
+summary(diabetes$frame)
+```
+
+Some functions in R don't work nicely with missing values. For instance, the mean function will return NA even if only 1 of the observations is missing. In this case, you can avoid the problem using the option `na.rm`, which ignores NA's in the data:
+
+```{r}
+mean(diabetes$bp.1s)
+mean(diabetes$bp.1s,na.rm=TRUE)
+```
+
+While fitting the regression model, for missing values, we have two options using the `na.action` argument in the `lm` function. If we choose `na.exclude`, R doesn't use the missing values, but keeps their position for residuals and fitted values. If we choose `na.omit` (this is the default), R removes the missing value observations completely from the analysis. These can be shown by example:
+
+```{r}
+fit1 = lm(weight ~ waist + hip + height+ age, data=diabetes) ##default is na.omit
+length(residuals(fit1)) # less than the total number of subjects in the data, which is 403
+summary(residuals(fit1)) # no NA's
+fit1$na.action
+
+fit2 = lm(weight ~ waist + hip + height+ age, na.action=na.exclude, data=diabetes)
+length(residuals(fit2)) # residual for every case in the data; For those with missing values, NA is returned
+summary(residuals(fit2)) # some NA's
+fit2$na.action
+
+```
+
+Finally, there is another commonly used method of dealing with missing values for quantitative (predictor) variables. Here we replace the missing value by the mean of the non-missing values of that variable:
+
+```{r}
+summary(diabetes$bp.1s) # NA's
+diabetes$bp.1s[is.na(diabetes$bp.1s)] <- mean(diabetes$bp.1s,na.rm=TRUE)#computes mean removing NA
+summary(diabetes$bp.1s) # no NA's
+```
+
+Note that filling NA's by sample mean does not change the mean of the variable. This should only be done for the predictor variables and we **do not** do this for the response variable since it is what we are trying to model. There are many potential problems with this naive imputation method. For example, it can cause bias (e.g., when missing is not at random), so be cautious.
+
+## Regression with Categorical Variables 
+
+In some data sets, a categorical variable may be coded numerically (how it is coded is usually provided in the document accompanying the data). If the three classes of `frame` had been coded as 1- small 2- medium 3-large, then we would need to treat it as a categorical variable and explicitly use `factor(frame)` in the `lm` function, as well as with the `pairs` function. In such a situation, had we simply used `frame`, then it would be treated as a quantitative variable (because its values are numeric now, even though those values are only allocated codes for the three classes) and give misleading results.
+
+Let's try a simple example using `weight` as the response variable with predictors `height` and `gender`. To make a scatter plot colored by `gender`: 
+```{r}
+plot(diabetes$height,diabetes$weight,pch=as.integer(diabetes$gender),
+      col=as.integer(diabetes$gender),main='Gender Coded Scatterplot',
+        ylab='Weight',xlab='Height')
+legend('bottomright',legend=c('Women','Men'),
+        pch=c(1,2),col=c(1,2)) # add a legend
+```
+
+Now let's fit the first-order model and get the coefficients so that we can draw the respective regression lines onto the scatter plot:
+
+```{r}
+weight.fit <- lm(weight~height+gender, data=diabetes)
+summary(weight.fit)
+
+# Or, if you prefer your model with coefficient for both levels and without intercept
+weight.fit.1 <- lm(weight~height+gender-1, data=diabetes)
+summary(weight.fit.1)
+```
+
+From the summary, we see that the regression line for the female group (the default reference level due to the alphabetical order) has intercept $-58.58$ with a slope of $3.66$, while the regression line for the male group has intercept $-58.58-12.51=-71.09$ with the same slope as the female regression line as there is no interaction in this model. We can add lines to our plot using the `abline` function:
+
+```{r}
+af <- weight.fit$coefficients[1]
+am <- weight.fit$coefficients[1]+weight.fit$coefficients[3]
+bf = bm = weight.fit$coefficients[2]
+
+plot(diabetes$height,diabetes$weight,pch=as.integer(diabetes$gender),
+      col=as.integer(diabetes$gender),main='Gender Coded Scatterplot',
+        ylab='Weight',xlab='Height')
+legend('bottomright',legend=c('Women','Men'),
+        pch=c(1,2),col=c(1,2)) # add a legend
+abline(af,bf,col=1,lwd=2)
+abline(am,bm,col='red',lwd=2)
+```
+
+Now suppose we'd like to make male instead of female as our reference level. We need to specify the reference level by the function `relevel`:
+```{r}
+weight.fit2 <- lm(weight~height+relevel(gender, ref="male"),  data=diabetes)
+summary(weight.fit2)
+```
+
+From the summary, we see that the regression line for the male group has intercept $-71.09$ with a slope of $3.66$, while the regression line for the female group has intercept $-71.09+12.51=-58.58$ with the same slope as the male regression line.
+
+
+Let's look at the interaction model: 
+```{r}
+weight.fit.inter <- lm(weight~height*gender,data=diabetes)
+summary(weight.fit.inter)
+
+af <- weight.fit.inter$coefficients[1]
+am <- weight.fit.inter$coefficients[1]+weight.fit.inter$coefficients[3]
+bf <- weight.fit.inter$coefficients[2]
+bm <- weight.fit.inter$coefficients[2]+weight.fit.inter$coefficients[4]
+
+plot(diabetes$height,diabetes$weight,pch=as.integer(diabetes$gender),
+      col=as.integer(diabetes$gender),main='Gender Coded Scatterplot',
+        ylab='Weight',xlab='Height')
+legend('bottomright',legend=c('Women','Men'),
+        pch=c(1,2),col=c(1,2)) # add a legend
+abline(af,bf,col=1,lwd=2)
+abline(am,bm,col='red',lwd=2)
+```
+
+In this case, the interaction model leads to a similar fit as the first-order model. 
+
+
+## Polynomial Regression
+
+Let's focus on using the quantitative variables `waist`, `hip`, `height`, `age` to predict `weight`. 
+```{r, tidy=TRUE}
+panel.cor <- function(x, y){
+  #usr <- par("usr")
+  #on.exit(par(usr))
+  par(usr = c(0, 1, 0, 1))
+  r <- round(cor(x, y, use="complete.obs"), 2)
+  txt <- paste0("R = ", r)
+  cex.cor <- 0.8/strwidth(txt)
+  text(0.5, 0.5, txt, cex = cex.cor * r)
+}
+
+pairs(~weight+waist+hip+height+age, data=diabetes, lower.panel = panel.cor)
+```
+
+
+We can see that these relationships are fairly linear, so a linear regression model might be a good fit. Let's first center the quantitative predictors to reduce correlation between $X$ and $X^2$ (alternatively, we could use the `scale` function to standardize the predictors): 
+
+```{r, tidy=TRUE}
+center <- function(x) {x-mean(x, na.rm = TRUE)}
+diabetes.c <- diabetes[,c("weight", "waist", "hip",  "height", "age")]
+diabetes.c[-1] <- lapply(diabetes.c[-1], center)
+str(diabetes.c)
+```
+
+First consider the **first-order model**: 
+```{r}
+fit1=lm(weight~., data=diabetes.c)
+summary(fit1)
+plot(fit1, which=1)
+```
+
+
+The residual against fitted value plot above for *fit1* shows a slight quadratic trend which suggests that we may include polynomial terms in the model. It is reasonable since *weight* is proportional to the volume which is a 3-dimensional measure, while *waist*,
+*hip* and *height* are all 1-dimensional measures. 
+
+Now let's fit a **second-order polynomial model**: 
+
+```{r, tidy=TRUE}
+fit2 <- lm(weight~waist+I(waist^2)+hip+I(hip^2)+height+I(height^2)+age+I(age^2)
+          +waist:hip+waist:height+waist:age+hip:height+hip:age+height:age, data=diabetes.c)
+summary(fit2)
+```
+Alternatively, we can use the mpoly() function to generate polynomial basis: Set the argument raw = TRUE will generate `raw’ polynomial basis in the form 1,x,x2,x3,⋯
+; The default raw = FALSE will generate orthogonal polynomials of the form zj=a0,j+a1,jx+a2,jx2⋯+aj,jxj(j=0,1,⋯,)
+ where the coefficients ak,j
+ are chosen such that these functions are orthogonal to each other. Orthogonal polynomials are numerically more stable. The argument degree specifies the order of the polynomial.
+
+```{r, tidy=TRUE}
+fit2.p=lm(weight~polym(waist, hip, height, age, degree=2, raw=TRUE), data=diabetes.c) ##equivalently use polym() function
+summary(fit2.p)
+```
+
+As we can see, fit2 and fit2.p are exactly the same. Both of them lead to the same fitted regression function and thus the same fitted values, residuals, etc.
+
+**Question**: Compare the coefficients of both fit2 and fit2.p to understand the variable expression in summary(fit2.p). In particular, what is the variable that polym(waist, hip, height, age, degree = 2, raw = TRUE)1.1.0.0 represents in fit2?
+
+Now do diagnostics again and compare `fit2` to `fit1`:
+```{r, tidy=TRUE}
+par(mfrow = c(1,2))
+plot(fit1,which=1)
+plot(fit2,which=1)
+par(mfrow = c(1,1))
+```
+The polynomial model appears to fit the data slightly better than the first-order model. 
+
+In contrast, a **two-way interaction model** would look like: 
+
+```{r}
+fit3 = lm(weight~.^2, data=diabetes.c)###see the notation
+summary(fit3)
+par(mfrow = c(1,2))
+plot(fit2,which=1)
+plot(fit3, which=1)
+par(mfrow = c(1,1))
+```
+
+The results of these two models appear to be similar. 
+
+**Question**: How does the two-way interaction model  differ from the second-order polynomial model?
+
+Note that, the three models are nested. We can use the `anova` function to **compare nested models**: 
+
+```{r}
+anova(fit1,fit3,fit2)
+```
+
+The results show that the two-way interaction model is significant compared to the first-order model, whereas the 2nd-order polynomial model is not significant compared to the two-way interaction model at level $0.05$. 
