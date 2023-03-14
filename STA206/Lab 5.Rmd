@@ -1,0 +1,175 @@
+---
+title: "Lab 5"
+author: "STA 206 | Fall 2022"
+date: "October 24, 2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Multiple Linear Regression
+
+### Getting Started
+
+In this lab of multiple regression in R, we explore a data set involving patient satisfaction.In particular, we will fit a regression model using the following as predictor variables: patient age, severity of the illness, and anxiety level.
+
+### Read data
+
+Let's start by first reading in the data, and then renaming the columns so that we don't get the variables confused.
+
+```{r}
+patient = read.table("patient.txt")
+names(patient) = c("satisfaction","age","severity","anxiety")
+```
+
+### Exploratory Data Analysis
+
+Before we explore the relationships between variables through pairwise scatter plots, we should first examine each variable marginally: variable type, summary statistics, histogram, boxplot, pie chart, missing values?, outliers?, etc.
+
+```{r}
+##Check the types of variables:
+
+sapply(patient, class)
+
+##Check number of missing values for each variable:
+
+sapply(patient, function(x) sum(is.na(x)))
+
+#Check summary statistic for each variable:
+summary(patient)
+```
+
+Next we will plot the histograms of each variables to have an idea about their distributions.
+
+```{r}
+par(mfrow = c(2, 2))
+for(i in 1:4) {
+hist(patient[, i], main=paste("Histogram of", names(patient)[i]), xlab = paste('Patients\'', names(patient)[i]))}
+
+par(mfrow = c(1, 1))
+```
+
+As mentioned in previous labs, we do have some ways of seeing how the variables are related including the scatterplot matrix and the correlation matrix.
+
+```{r}
+pairs(patient) ## pairwise scatter plots
+cor(patient) ## pairwise correlations
+```
+
+### Model fitting and analysis: First-order model
+
+Now, we will learn how to perform multiple regression in R using the `lm()` function. To fit the first-order model in R, we would use:
+```{r}
+fit = lm(satisfaction ~ age + severity + anxiety, data = patient)
+summary(fit)
+```
+
+Note that this output gives a lot of information. For instance, multiple $R^2$  = 0.6822, adjusted $R^2$ = 0.6595 and $\sqrt{MSE}$  = 10.06. Another important piece of the output is
+the F-statistic, $F^*$  = 30.05,  and the associated degrees of freedom (3,42). Suppose
+we wanted to conduct the F test to determine if there is a regression relation. Here
+is how we could set it up for $\alpha = 0.01$: 
+
+$$H_0: \beta_1 = \beta_2 = \beta_3 = 0 \; \textrm{ vs } \; H_1: \text{not all of the }\beta \text{'s are 0}$$  
+
+We reject $H_0$ if $F^* > F(1-\alpha; p-1, n-p) = F(0.99; 3, 42)$. Now, we can use R to find the critical value.
+
+```{r}
+qf(.99,3,42)
+```
+
+From the summary table, we have $F^*$ = 30.05. 
+
+Thus, we should reject the null hypothesis that there is no regression relation. Alternatively, a p-value for this test is given by the summary, and to verify it, use:
+
+```{r}
+1-pf(30.05,3,42)
+```
+
+Since the pvalue is less than the pre-specified significance level 0.01, we again reach the conclusion that $H_0$ should be rejected at level 0.01.
+
+Another tool is the function `confint()`. With it, we can make confidence intervals for multiple parameters for at level. Suppose we wanted a 97% confidence interval for the age and severity effects. We could use:
+
+```{r}
+confint(fit,parm=c("age","severity"),level=.97)
+```
+
+The numbers given are the lower and upper bounds of the confidence interval, respectively. Notice how we can specify the parameters and level.
+
+Further, we can also compute the prediction interval for mean response using the `predict()` function.
+
+```{r}
+newX = data.frame(age = 49, severity = 58, anxiety = 2.6)
+predict(fit, newX, interval='confidence', level=0.97)
+```
+
+### Residual analysis
+
+We might be interested in diagnostic residual plots. We can use:
+
+```{r}
+plot(fit,which=1) ##residuals vs. fitted values
+plot(fit,which=2) ##residuals Q-Q plot
+boxplot(fit$residuals) ## residuals boxplot
+```
+
+We can see that there is no obvious nonlinearity and the error distribution is a bit
+light-tailed.
+
+Since this is multiple regression, residual versus fitted values will be different from residual versus individual regressors. Hence, we also want to check what the residuals versus each X variable looks like:
+```{r}
+plot(patient$age,fit$residuals)
+plot(patient$severity,fit$residuals)
+plot(patient$anxiety,fit$residuals)
+```
+
+We do not see any pattern between the residuals and each X variable. 
+
+We can use the residual analysis to check if we need to include some regressors in the model. For example, we include only age and anxiety in the model and plot its residual against severity. If the residual plot shows any pattern, we conclude that we should include severity in the model:
+
+```{r}
+fit2 = lm(satisfaction ~ age + anxiety, data = patient)
+plot(patient$severity,fit2$residuals)
+```
+
+Thus, we may consider dropping severity from the model (note that "severity" is not significant in the original model).
+
+Similarly, we can include severity and anxiety in the model and plot the residuals against age.
+
+```{r}
+fit3 = lm(satisfaction ~ severity + anxiety, data = patient)
+plot(patient$age,fit3$residuals)
+```
+
+Here, we see a slight negative association of the residuals with age, hence we conclude that age should be included in the model. In fact, age is the most significant variable of the three predictors (when all of them are included in the model).
+
+We might also want to plot the residuals against each 2-way interaction term to see if
+interactions should be added to our model:
+
+```{r}
+plot(patient$anxiety*patient$age,fit$residuals)
+plot(patient$anxiety*patient$severity,fit$residuals)
+plot(patient$severity*patient$age,fit$residuals)
+```
+
+There is no obvious pattern in these plots, indicating that the first-order is likely to
+be adequate.
+
+*Exercise:* For the two datasets in the R-Data "Lab-5-exercise", there are 2 regressors, X1 and X2. Fit a linear model (Y ~ X1+X2) for both and check if the interaction term needs to be included in the model.
+
+```{r}
+load("Lab5-exercise.RData")
+attach(data1)
+fit1=lm(Y~X1+X2, data = data1)
+
+###Fill in the rest and tell your conclusion###
+
+attach(data2)
+fit2=lm(Y~X1+X2, data = data2)
+
+###Fill in the rest and tell your conclusion###
+```
+

@@ -1,0 +1,306 @@
+---
+title: "Lab 3"
+author: "STA 206 | Fall 2022"
+date: "October 10, 2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Residual Plots
+
+Analyzing the residuals of a fitted regression model  can give us insight about the appropriateness of the model and how well the model fits the data. We can make various plots to have a visual understanding of the fits and conduct model diagnostics. 
+
+When using the default R `plot` function, the first argument is for the variable on the x-axis and the second argument is for the variable on the y-axis. `xlab` and `ylab` specify the labels for the x-axis and y-axis, respectively. The `abline` function adds a straight line to an existing plot.
+
+
+In this lab, we will continue working on the `Copier.txt` data from last week.
+
+
+```{r}
+## Read in data
+copier = read.table("Copier.txt", header=FALSE)
+
+## Fit a simple regression model 
+fit = lm(V1~V2, data=copier)
+summary(fit)
+
+## Plotting
+par(mfrow=c(2,2))  #plot 2*2 figures in one panel
+
+plot(copier$V2, copier$V1, xlab='# of copiers', ylab='# of minutes', main='Scatter plot and fitted line')	
+abline(fit, col='red')	#adding the fitted line (red)
+
+plot(fit, which=1)	# plot the residuals against the fitted value
+plot(fit, which=2)	# plot the normal-qq plot of the residuals
+```
+
+
+If the model is adequate, the "residual vs fitted" plot should show no obvious pattern. Moreover, the spread of the residuals should be roughly the same across the horizontal axis. If the errors are normally distributed, the points in the Normal Q-Q plot should roughly fall on a straight line. 
+
+We can also just use the default plotting function of lm:
+```{r}
+par(mfrow=c(2,2))
+plot(fit)
+par(mfrow=c(1,1))
+```
+
+## Transformations
+
+Sometimes when some basic assumptions of the model are not satisfied, we can use transformation as a remedy. We can either transform the response variable Y, or the predictor variable X.
+
+* When the error terms are reasonably normally distributed with approximately constant variance, we apply transformation on the predictor variable X to linearize a non-linear relationship, since transformation of Y may change the distribution of error terms. Commonly used transformations include log, square root, reciprocal,
+exponential, etc. 
+
+* When there appears to be unequal variance or/and non-normality problems, transformation should be done on the response variable Y. Applying transformation on Y can change the distributions of error terms. Commonly used transformations include log, square root, reciprocal, etc. A transformation of the response variable from the family of power transformations may be chosen automatically by the *Box-Cox* procedure.
+
+* We may transform X and Y simultaneously if necessary.
+
+Let's consider the following data in the file `trans1.txt`. 
+
+```{r}
+d1 = read.table("trans1.txt", header = TRUE)
+plot(d1)
+```
+
+
+The scatterplot does not suggest that a linear relation between X and Y is adequate here. If we fit a simple regression model to the data, the diagnostic plots will display a warning sign:  there is a nonlinear trend in the residual vs. fitted value plot.
+
+```{r}
+fit1.1 = lm(Y~X, data = d1)
+summary(fit1.1)
+
+par(mfrow = c(2,2))
+plot(d1, main='Scatter plot')	
+abline(fit1.1, col='red')
+plot(fit1.1, which=1)
+plot(fit1.1, which=2)
+
+par(mfrow = c(1,1))
+```
+
+In this case, we see that the linearity assumption is not satisfied here and we can transform the X variable in this case. It is clear from the scatterplot that there is a quadratic trend. So, we may want to square the X values and then fit a linear regression.
+
+```{r}
+fit1.2 <- lm(Y~I(X^2), data = d1)
+summary(fit1.2)
+
+par(mfrow = c(2,2))
+plot(d1$X^2, d1$Y, main='Scatter plot')	
+abline(fit1.2, col='red')
+plot(fit1.2, which=1)
+plot(fit1.2, which=2)
+par(mfrow = c(1,1))
+```
+
+Now, we see that on the transformed X, the linear regression is suitable. 
+
+**Exercise**: For the data in `trans2.txt`, find the suitable transformation for X and produce the appropriate plots to support your claim.
+
+```{r}
+d2 = read.table("trans2.txt", header = TRUE)
+plot(d2)
+
+####Fill up the details####
+# fit2.2 <- lm(Y~I(1/X), data=d2)
+# plot(1/d2$X, d2$Y)
+# abline(fit2.2)
+```
+
+In certain cases, we see from the residual plot that the variance of the residuals are not constant. The QQ plot also shows deviations from Normality. 
+
+```{r}
+d4 = read.table("trans4.txt", header = TRUE)
+
+fit4.1 = lm(Y ~ X, data = d4)
+summary(fit4.1)
+
+par(mfrow = c(2,2))
+
+plot(d4, main = "Scatterplot")
+abline(fit4.1, col='red')
+plot(fit4.1, which=1)
+plot(fit4.1, which=2)
+par(mfrow = c(1,1))
+```
+
+Then, we transform Y. Usually, we can use Box-Cox procedure to find an appropriate transformation. Box-Cox transformation is in MASS (math) library of R.
+
+```{r}
+library(MASS)
+boxcox(lm(Y~X, data = d4))
+```
+
+
+The vertical axis of the plot is the loglikelihood based on different transformations on Y. The horizontal axis is the value of the power of Y. The transformation is $Y_{new} = Y^{\lambda}$. We usually round up the value to make it easily interpretable. For example, when the optimal $\lambda$ is around 0.45, we make it 0.5. When optimal $\lambda$ is 0, we use a log-transformation. 
+
+We can see the log-likelihood is largest when $\lambda$ is around 0, which means the slog transformation is appropriate.
+
+```{r}
+plot(d4$X, log(d4$Y))
+fit4.2 = lm(log(Y) ~ X, data=d4)
+
+summary(fit4.1)
+summary(fit4.2)
+
+```
+
+The multiple R-squared increased from 0.066 to 0.933.
+
+```{r}
+par(mfrow = c(2,2))
+plot(d4$X, log(d4$Y), main = "Scatterplot")
+abline(fit4.2, col='red')
+plot(fit4.2, which=1)
+plot(fit4.2, which=2)
+par(mfrow = c(1,1))
+```
+
+The diagnostic plots suggest that conformity to assumptions has been improved.
+
+**Exercise**: Try Box-Cox transformation on `trans5.txt` and produce the necessary plots to support the transformation.
+
+```{r}
+d5 = read.table("trans5.txt", header = TRUE)
+plot(d5)
+
+###Fill up the rest###
+# boxcox(lm(Y~X, data = d5))
+```
+
+## Data Structures
+
+R is equipped with handling different data structures. We have already seen two of them: vectors and matrices. There are some special vectors that we can create using inbuilt R functions. One of them is using the `seq` function:
+
+```{r}
+##Generating arithmetic sequence
+
+seq(1, 20, 4)
+seq(1, 20, length.out = 5) ##Length of output = 5, creates 4 equally spaced intervals
+
+
+```
+
+Another function to create special vectors is `rep`:
+
+```{r}
+## rep stands for repeat
+
+rep(2, 10) 
+rep(1:4, 2)
+rep(1:4, each = 2)
+rep(1:4, times = 2, each = 3)
+```
+
+### Arrays
+
+Arrays are the R data objects which can store data in more than two dimensions. For example - If we create an array of dimension (2, 3, 4) then it creates 4 rectangular matrices each with 2 rows and 3 columns.
+
+```{r}
+A = array(1:24, dim=c(2,3,4))  
+A
+
+B = array(rnorm(2*3*2), dim = c(2,3,2))
+B
+
+```
+
+We need to be careful with indexing of arrays.
+```{r}
+A[ ,2, ] ##Extracts the 2nd columns
+A[1, , ] ##Extracts the 1st rows
+A[ , , 1]##Extracts the 1st matrix
+```
+
+### Lists
+
+Lists are the R objects which contain elements of different types like - numbers, strings, vectors and another list inside it. A list can also contain a matrix as its element. Lists are created in R using `list` function.
+
+```{r}
+amy = list(name="Amy",GRE = 325,
+           school="UCLA", GPA=3.6,resident=T)
+
+# [ ] gets another list
+amy[4] 
+typeof(amy[4])
+amy[2:4]
+```
+
+We can use "[[ ]]" to access the elements of each component of the list.
+
+```{r}
+amy[[3]]
+
+length(amy)##No of components of the list
+names(amy)##names of different components
+```
+
+**Exercise** Create a list of 3 components, the first being a sequence of 6 numbers starting from 12 and with increments 2, the second component being a vector of 5 random numbers from standard normal and the third component being a matrix of numbers 1 to 6 arranged in 3 rows and 2 columns.
+
+## Data frames
+`data.frame` is perhaps the most commonly used data structure in data modeling in R. A data frame is a matrix-like structure whose columns may be of differing types (numeric, logical, factor and character and so on).
+
+We can create `data.frame` by reading files, or by converting matrices or lists. Suppose we have the following data:
+```{r}
+#case Y  X
+#1    42 7
+#2    33 4
+#3    75 16
+#4    28 3
+#5    91 21
+#6    55 8
+
+```
+
+Let's start by first inputting the data into R, and then renaming the columns so that
+we don't get the variables confused:
+```{r}
+dt = matrix(c(42, 33, 75, 28, 91, 55, 7, 4, 16, 3, 21, 8), 6, 2)
+colnames(dt) = c('Y', 'X')
+```
+```{r}
+# d5 <- read.table("trans5.txt", header = TRUE)
+class(d5) # data.frame
+dt <- cbind(dt, 1:6)
+class(dt) # matrix
+dt <- as.data.frame(dt)
+class(dt)
+colnames(dt)[3]<- 'Z'
+```
+
+### Subsetting Data
+We have several ways to select columns (variables)
+```{r}
+dt[c('X','Z')]
+dt[2:3]
+dt[colnames(dt) %in% c("X", "Z")]
+dt[c(-1)]
+```
+
+When taking a single variable, notice the following difference
+```{r}
+# Returns a data.frame
+dt[2]
+dt['X']
+dt['X'][1] # the first column of dt['X']
+dt['X'][1,] # the first row of dt['X']
+
+# Returns a vector
+dt[,2]
+dt[['X']]
+dt$X
+dt$X[1] # the first element of dt$X
+#dt$X[1,] # raises error, dt$X is a vector
+```
+
+We also have many ways to select rows (observations).
+```{r}
+dt[1:5,] # subset by index
+dt[dt$Z>3, c('Y','X')] # subset by conditions
+dt[sample(1:nrow(dt), 3),] # takes a random sample
+```
+<!-- As a side note, the *solve* function can also be used to invert matrices (e.g *solve(A)* will return the inverse of A, if it exists). However, it is faster to solve $Ax = b$ by $solve(A, b)$ than with $solve(A)*b$ (the former does not invert A which makes it more efficient). -->

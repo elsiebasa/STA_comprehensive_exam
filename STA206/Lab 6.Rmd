@@ -1,0 +1,308 @@
+---
+title: "Lab 6"
+author: "STA 206 | Fall 2022"
+date: "October 31, 2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Nonadditive model with Interactions
+
+In the previous lab, we saw different aspects of multiple linear regression with only first order terms. 
+
+```{r}
+patient = read.table("patient.txt")
+names(patient) = c("satisfaction","age","severity","anxiety")
+colnames(patient)[1] = "Y"
+
+fit = lm(Y ~ age + severity + anxiety, data = patient)
+summary(fit)
+anova(fit)
+```
+
+To get SSE, simply look under the "Sum Sq" column for "Residuals". To get SSR, add up the remaining elements of that same column. Finally, $SSTO=SSR+SSE$.
+
+The ANOVA table provides decomposition of SSR into single d.f. ESS, in the order
+of the X variables entering the model.
+
+Source of Variation  |   SS   | d.f. | MS
+-------------------- | -------|------|----
+Regression           |9120.5  | 3    |3040.2
+age<br>severity\|age<br>anxiety\|age,severity  |8275.4 <br>480.9<br>364.2 |1<br>1<br>1   |8275.4<br>480.9<br>364.2
+Error                |4248.8  | 42   |101.2
+Total                |13369.3 | 45   |
+
+For example, we can obtain SSR(severity,anxiety|age) = SSR(severity|age) + SSR(anxiety|age,severity)=480.9+364.2=845.1.
+
+Now suppose we want to get SSR(severity|age,anxiety). We need to enter the X variables in the following order:
+
+```{r}
+fit.alt = lm(Y ~ age + anxiety + severity, data = patient)
+summary(fit.alt)
+```
+
+```{r}
+anova(fit.alt)
+```
+
+Then we can get SSR(severity|age,anxiety)=81.7. 
+
+Now suppose we want to fit a model that includes all two-way interactions of the predictors. We will use the `patient.txt` data from the previous lab.
+
+You can add interaction terms by using  ":" in the `lm` formula. For example, if we want to include the interaction between A and B, we write A:B. 
+
+**Note:** A*B = A+B+A:B
+
+```{r}
+fit2 = lm(Y ~ age+severity+anxiety+age:severity+
+age:anxiety+severity:anxiety, data=patient)
+summary(fit2)
+```
+
+
+We can compare this summary with the summary of the first-order model, and we see that the $R^2$ and adjusted $R^2$ are relatively unchanged: $R^2$ is slightly increased while $R^2_a$ is slightly decreased. Thus, bringing in the interaction terms does not do much to account for variability in the response variable. It does not seem to be necessary to use this more complex  model for this data.
+
+We can use the ANOVA table to get SSE, SSR, and SSTO as before:
+
+```{r}
+anova(fit2)
+```
+
+We notice that the SSE is relatively close to what it was before, and thus so is SSR. SSTO should remain the same regardless of the model, since
+
+$$SSTO = \sum_{i=1}^n (Y_i - \bar{Y})^2$$
+does not depend on the model.
+
+Suppose we wanted a confidence interval for the mean response at a given set of values of the X variables. For instance, let's say we want a confidence interval for the mean satisfaction when age is 19, severity is 50, and anxiety is 2.1:
+
+```{r}
+newX = data.frame(age=19, severity=50, anxiety=2.1)
+predict(fit2, newX, interval="confidence", level=0.99, se.fit=TRUE)
+```
+
+The se.fit option is telling R that we also want the standard errors. As before, we
+can switch the interval type to "prediction" if we want a prediction interval instead.
+
+```{r}
+predict(fit2, newX, interval="prediction", level=0.99, se.fit=TRUE)
+```
+
+Finally, if you wanted to fit a model with, say, just one interaction term, you could write:
+
+```{r}
+fit3 = lm(Y~age+severity+anxiety+anxiety:severity, data=patient)
+
+##OR Equivalently
+
+fit3 = lm(Y~age+severity*anxiety, data=patient)
+
+summary(fit3)
+
+```
+
+If you wanted a model with a polynomial term, say age2, you could write:
+
+```{r}
+fit4 = lm(Y~age+severity+anxiety+I(age^2), data=patient)
+summary(fit4)
+```
+
+If you had a model with three predictors and wanted all interactions (two-way and three-way) to be included, you could write (notice the last term):
+
+```{r}
+load("data1.Rdata")
+fit5 = lm(Y~X1+X2+X3+X1:X2+X1:X3+X2:X3+X1:X2:X3, data=data1)
+
+##OR Equivalently
+
+fit5 = lm(Y~X1*X2*X3, data=data1)
+summary(fit5)
+
+```
+We can also look into the anova for the above fit.
+
+```{r}
+anova(fit5)
+```
+**Exercise** Consolidate the above findings using residual analysis. Fit a model with all 1st, 2nd and 3rd order terms except $X1*X3$ and $X2*X3$. And plot the residuals against these interactions to see if there is any pattern.
+
+## Body Fat Example: partial coefficients; add-variable plots
+* **Load the data into the R workspace **<br>
+
+```{r}
+bodyfat=read.table("bodyfat_example.txt")
+names(bodyfat)=c("X1","X2","X3","Y")
+str(bodyfat)
+attach(bodyfat)
+```
+
+* **LS fitted regression coefficients as partial coefficients **<br>
+```{r}
+##let's look at the LS fitted coefficient of X3 in Model 4
+fit=lm(Y~X1+X2+X3)
+fit$coefficients
+anova(fit)
+
+eY.12=lm(Y~X1+X2)$residuals 
+e3.12=lm(X3~X1+X2)$residuals 
+fit3=lm(eY.12~e3.12)
+fit3$coefficients
+anova(fit3)
+```
+
+***exercise**: examine the LS fitted coefficient of X2 in Model 4*. 
+
+
+* **Added variable plot for X2 (given X1): Regress Y onto X1; Regress X2 onto X1 **<br>
+
+```{r}
+eY.1=lm(Y~X1)$residuals
+e2.1=lm(X2~X1)$residuals
+fit2=lm(eY.1~e2.1)
+summary(fit2)
+plot(e2.1, eY.1, xlab="e(X2|X1)", ylab="e(Y|X1)", main="added variable plot for X2 (given X1)")
+abline(fit2$coefficients, lty=2, lwd=2, col=2)
+```
+
+***exercise**: get the added varianle plot of X3 given X1 and X2*. 
+
+
+
+
+* **Which variable to add next? **<br>
+Suppose X1 is currently in the model and we want to decide which of X2 and X3 should be added into the model next. 
+We already have the added variable plot for X2 given X1. Let's get the added variable plot for X3 given X1. Then conduct a side-by-side comparison of these two plots. 
+
+```{r}
+eY.1=lm(Y~X1)$residuals
+e3.1=lm(X3~X1)$residuals
+fit3=lm(eY.1~e3.1)
+summary(fit3)
+
+
+x.lim=range(e2.1, e3.1)
+y.lim=range(eY.1)
+par(mfrow=c(1,2))
+plot(e2.1, eY.1, xlab="e(X2|X1)", ylab="e(Y|X1)", xlim=x.lim, ylim=y.lim, main="added variable plot for X2")
+abline(fit2$coefficients, lty=2, lwd=2, col=2)
+
+plot(e3.1, eY.1, xlab="e(X3|X1)", ylab="e(Y|X1)", xlim=x.lim, ylim=y.lim, main="added variable plot for X3")
+abline(fit3$coefficients, lty=2, lwd=2, col=2)
+```
+
+
+***exercise**: Suppose the current model contains X2. Use the added variable plots to decide on which of X1 and X3 should be added into the model next.* 
+
+## Standardization of variables
+
+We can use the **scale()** function to create standardized variables. Standardized variables in general have mean 0 and standard deviation 1.
+
+```{r}
+x = runif(100)
+sc.x = scale(x)
+mean(sc.x)
+sd(sc.x)
+```
+
+
+## Strings in R (Optional)
+
+We will often need to manipulate strings in R,  e.g plotting. One of the most useful
+functions is *paste()* which combines strings (concatentates) into one and/or multiple
+strings. Using the following definition, *paste(..., sep=" ", collapse=NULL)*, we have
+some quick examples.
+
+```{r}
+paste("x",1:3,sep='_')##Separate strings
+paste("x",1:3,sep='_',collapse = ", ")##Collapses into a single string
+paste0("x",1:3,collapse = ',') # paste0 is paste with sep=""
+nth <- paste0(1:12, c("st", "nd", "rd", rep("th", 9)))
+nth
+```
+
+Let's look into a few other examples:
+```{r}
+wrd = c("a","beautiful","day") # a vector of three elements
+wrd
+x = c(1,9,3)
+u = c("_","!","?")
+paste0(wrd,u,x)
+paste0(wrd,u,x, collapse = " ")
+```
+
+### strsplit
+
+*strsplit()* function splits the elements of a character vector into substrings.
+
+```{r}
+sen.p = paste(wrd[1],wrd[2],wrd[3])##" " is the default separator
+sen.p
+
+sen.wrd=strsplit(sen.p,split=" ")[[1]]
+sen.wrd
+typeof(sen.wrd)###Creates a list
+typeof(sen.p)
+
+cat("My name is", "Sam", sep = " ")###concatenates and prints
+```
+
+Now, let's look into some functions applied to strings.
+
+```{r}
+
+
+fun1 <- function(m=1){ 
+  return(cat(rep("Are you excited ?", m), "\n"))  # prints the phrase m times
+}
+fun1(5)
+
+```
+
+Another important function is *sprintf()*. It returns a character vector containing a formatted combination of text and variable values.
+
+```{r}
+paste("what does the", 1, "say")
+
+sprintf("What does the %s say?!", "fox")
+```
+
+There are lots of formats you can specify. Here are some examples.
+
+```{r}
+# Notation | Description
+# ----------------------------------------------
+# %s       | a string
+# %d       | an integer
+# %i       | an integer
+# %f       | decimal notation with six decimals
+
+
+sprintf("%+f", pi)
+sprintf("%.3f", pi)
+sprintf("%05.1f", pi)
+sprintf("%-10f", pi) # left justified
+sprintf("%e", pi)
+```
+
+It can work for vectors as well:
+
+```{r}
+sprintf("What does the %s say?!", c("cat", "dog", "fox"))
+```
+
+**Exercise:** Consider the names of the following people. Create a function that prints, for example, "Lily is saying hello!" and use "sapply" to apply this function to the vector of names.
+
+```{r}
+names = c("Sun", "Moon", "Star")
+
+say_hello =function(i){
+  ##Fill in the details
+}
+
+##sapply(#fill in the details)
+```
+
