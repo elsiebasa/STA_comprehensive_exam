@@ -1,0 +1,244 @@
+---
+title: "STA 207: Assignment II"
+output: html_document
+---
+***
+
+**Instruction:** This key is provided as a learning tool. It does not dictate what you should or should not include in your homework. 
+
+***
+
+A consulting firm is investigating the relationship between wages and some demographic factors. The file `Wage.csv` contains three columns, which are 
+
+  - `wage`, the wage of the subject,
+  - `ethnicity`, the ethnicity of the subject,
+  - and `occupation`, the occupation of the subject. 
+
+
+```{r,echo=T,results=F,message=F}
+Wage=read.csv('Wage.csv');
+library(gplots)
+library(lme4)
+attach(Wage)
+```
+
+***
+
+(1) Write down a two-way ANOVA model for this data. For consistency, choose the letters from $\{Y,\alpha, \beta, \mu, \epsilon\}$ and use the factor-effect form. 
+
+
+<span style="color:blue"> **Solution** </span>
+
+We can use a two-way fixed effect ANOVA with interaction 
+	$$Y_{i,j,k}=\mu + \alpha_i+\beta_j +(\alpha \beta)_{i,j} +\epsilon_{i,j,k}, \ i=1,\ldots, 6, j =1,\ldots, 3, k=1,2,\ldots, n_{i,j},$$
+	where $\{ \alpha_i\}$ satisfies that $\sum_{i=1}^6 \alpha_i=0$, $\{ \beta_j\}$ satisfies that $\sum_{j=1}^3 \beta_j=0$, $\sum_{i=1}^6 (\alpha \beta)_{i,j}=0$ for all $j$,  $\sum_{j=1}^3 (\alpha \beta)_{i,j}=0$ for all $i$,  and $\{\epsilon_{i,j,k}\}$ are i.i.d. $N(0,\sigma^2)$.
+	
+Here $\mu$ is the overall wage, $\{\alpha_i\}$ are the main effects of `occupation`, $\{\beta_j\}$ are the main effects of `ethnicity`, $\{ (\alpha \beta)_{i,j}\}$ are the interaction effects,  and $\{\epsilon_{i,j,k}\}$ are the errors. Values of $n_{i,j}$ can be found in the following table. 
+
+```{r}
+table(ethnicity,occupation)
+```
+	
+***
+
+(2) Obtain the main effects plots and the interaction plot. Summarize your findings.
+	
+
+	
+<span style="color:blue"> **Solution** </span>
+
+	State your findings on these plots, e.g., there seems to be some interaction effects. 
+	
+```{r,echo=F,include=T}
+par(mfrow=c(1,3))
+plotmeans(wage~ethnicity,data=Wage,xlab="Type",ylab="Wage", main="Main effect, Ethnicity") 
+
+plotmeans(wage~occupation,data=Wage,xlab="Occupation",ylab="Wage", main="Main effect, Occupation") 
+
+interaction.plot( occupation, ethnicity,wage,xlab="occupation",ylab="Wage", main="Interaction")
+par(mfrow=c(1,1))
+```
+	
+***
+	
+(3) Fit the ANOVA model described in Part 1. Obtain the ANOVA table and state your conclusions. Are the findings here consistent with your initial assessments from Part 2?
+	
+<span style="color:blue"> **Solution** </span>
+From the ANOVA table, it appears that the interaction effects are unlikely to be present in the dataset. Or, we can not reject the null hypothesis that the interaction effects are absent at the significance level 0.05.
+
+```{r}
+aov.fit=aov(wage~ethnicity*occupation,data=Wage);
+summary(aov.fit)
+```
+
+This is a case where you can see that the order of sum of squares decomposition.
+
+```{r}
+aov.fit.1=aov(wage~occupation*ethnicity,data=Wage);
+summary(aov.fit.1)
+```
+
+
+***
+
+(4) Carry out a test to decide if the  effect of ethnicity is present on the full data set, at the significance level $\alpha=0.01$. 
+	
+(10 pts: 3 for the reduced model, 3 for code, 4 for correctly stating test result)
+	
+<span style="color:blue"> **Solution** </span>
+		The reduced model is 
+		$$Y_{i,j,k}=\mu + \alpha_i+\epsilon_{i,j,k}, \ k=1,\ldots,n_{i,j}, j=1,\ldots, 3, i =1,\ldots, 6.$$
+
+
+We can use an F-test to by calling the `anova()` function. 
+```{r}
+aov.fit.red<-aov(wage~occupation,data=Wage);
+anova(aov.fit.red,aov.fit)
+```
+Hence, we fail to reject the null hypothesis that the effect of ethnicity is absent at the nominal significance level of $0.01$. 
+
+***	
+
+(5) For this part and the next, assume that the occupations have been selected randomly. Write down an appropriate ANOVA model that is additive in the factors and explain the terms in the model.
+	
+		
+<span style="color:blue"> **Solution** </span>
+
+We can use a mixed effect model with no interaction 
+	$$Y_{i,j,k}=\mu + \alpha_i+\beta_j+\epsilon_{i,j,k}, \ k=1,\ldots,n_{i,j}, j=1,\ldots, 3, i =1,\ldots, 6.$$
+		where $\{ \alpha_i\}$ are i.i.d. $N(0,\sigma_{\alpha^2})$, $\{ \beta_j\}$ satisfies that $\sum_{j=1}^4 \beta_j=0$,  $\{\epsilon_{i,j,k}\}$ are i.i.d. $N(0,\sigma^2)$, and $\{\alpha_i\}$ and $\{\epsilon_{i,j,k}\}$ are mutually independent. The terms in the model are similar to those in Part 1. 
+
+
+Or We can use a random effect model with no interaction 
+	$$Y_{i,j,k}= \mu + \alpha_i+\beta_j+\epsilon_{i,j,k}, \ k=1,\ldots,n_{i,j}, j=1,\ldots, 3, i =1,\ldots, 6.$$
+		where $\{ \alpha_i\}$ are i.i.d. $N(0,\sigma_{\alpha}^2)$, $\{ \beta_j\}$ are i.i.d. $N(0,\sigma_{\beta}^2)$,,  $\{\epsilon_{i,j,k}\}$ are i.i.d. $N(0,\sigma^2)$, and $\{\alpha_i\}$, $\{ \beta_j\}$, and $\{\epsilon_{i,j,k}\}$ are mutually independent. The terms in the model are similar to those in Part 1. 
+		
+***
+
+(6) Assuming that the model in Part 5 is appropriate, obtain an estimate of the proportion of variability that is due to variability in occupation.
+	
+	
+<span style="color:blue"> **Solution** </span>
+
+
+```{r}
+mm.fit <- lmer(wage ~ ethnicity+ (1 | occupation), data = Wage)
+mm.fit.sum=summary(mm.fit) # You can find the numbers here already..
+mm.fit.vcov=VarCorr(mm.fit)
+sigma.occ=attr(mm.fit.vcov$occupation,'stddev');
+sigma=mm.fit.sum$sigma;
+var.v = sigma.occ^2/(sigma^2+sigma.occ^2)
+```
+
+  The proportion of variability due to occupation is $\sigma^2_{\alpha}/(\sigma^2_{\alpha}+\sigma^2) =$ `r round(var.v,digits=3)`. 
+
+
+Or
+```{r}
+mm.fit <- lmer(wage ~ (1 | ethnicity) + (1 | occupation), data = Wage)
+mm.fit.sum=summary(mm.fit) # You can find the numbers here already..
+mm.fit.vcov=VarCorr(mm.fit)
+sigma.occ=attr(mm.fit.vcov$occupation,'stddev');
+sigma.eth=attr(mm.fit.vcov$ethnicity,'stddev');
+
+
+sigma=mm.fit.sum$sigma;
+var.v = sigma.occ^2/(sigma^2+sigma.occ^2+sigma.eth^2)
+```
+
+The proportion of variability due to occupation is $\sigma^2_{\alpha}/(\sigma^2_{\alpha}+\sigma^2_{\beta}+\sigma^2) =$ `r round(var.v,digits=3)`. 
+
+
+***
+
+
+*** 
+
+(7) 
+Consider a two-way ANOVA model with fixed effects 
+\begin{equation}\label{eqn:anova_two}
+Y_{i,j,k}=\mu + \alpha_i+ \beta_j+\epsilon_{i,j,k}, \  i =1,\ldots, a, j=1,\ldots, b, k=1,\ldots, n
+\end{equation}
+where $\{ \alpha_i\}$ satisfies that $\sum_{i}^a  \alpha_i=0$, $\{\beta_j\}$ satisfies that $\sum_{j}^b  \beta_j=0$,  and $\{\epsilon_{i,j,k}\}$ are i.i.d. $N(0,\sigma^2)$. Derive the least squares estimator from the above equation. 
+
+
+<span style="color:blue"> **Solution** </span>
+
+
+The squared error loss is
+\begin{equation*}
+L_1(\mu,\alpha,\beta)= \frac{1}{2 n_T}\sum_{i=1}^a  \sum_{j=1}^b \sum_{k=1}^{n} \left( Y_{i,j,k}-\mu-\alpha_i-\beta_j \right)^2.
+\end{equation*}
+
+
+We can derive that 
+\begin{equation*}
+\begin{aligned}
+\frac{\partial L_2}{\mu}  & =- \frac{1}{n_T}  \sum_{i=1}^a \sum_{j=1}^{b} \sum_{k=1}^{n}  (Y_{ijk} - \mu-\alpha_i-\beta_j)\\
+\frac{\partial L_2}{\alpha_i}  & = - \frac{1}{n_T} \sum_{j=1}^{b} \sum_{k=1}^{n}  (Y_{i,j,k} - \mu-\alpha_i-\beta_j) \quad {\rm for} \ i=1,\ldots, a\\
+\frac{\partial L_2}{\beta_j}  & =  - \frac{1}{n_T} \sum_{i=1}^a  \sum_{k=1}^{n}  (Y_{i,j,k} - \mu-\alpha_i-\beta_j) \quad {\rm for} \ j=1,\ldots, b
+\end{aligned}
+\end{equation*}
+
+Using the constraints that  $\sum_{i}  \alpha_i=0$ and $\sum_{j}  \beta_j=0$, we have 
+\begin{equation*}
+\begin{aligned}
+\frac{\partial L_2}{\mu}  & =   -\sum_{i=1}^a \sum_{j=1}^{b} \sum_{k=1}^{n}  (Y_{i,j,k} - \mu)\\
+\frac{\partial L_2}{\alpha_i}  & =  - \sum_{j=1}^{b} \sum_{k=1}^{n}  (Y_{i,j,k} - \mu-\alpha_i) \quad {\rm for} \ i=1,\ldots, a\\
+\frac{\partial L_2}{\beta_j}  & = - \sum_{i=1}^a  \sum_{k=1}^{n}  (Y_{i,j,k} - \mu-\beta_j) \quad {\rm for} \ j=1,\ldots, b.
+\end{aligned}
+\end{equation*}
+
+We can then show that $\hat{\mu}\equiv \bar{Y}_{\cdot\cdot\cdot}$, $\hat{\alpha}_i = \bar{Y}_{i\cdot\cdot}-\bar{Y}_{\cdot\cdot\cdot}$, and $\hat{\beta}_i = \bar{Y}_{\cdot i\cdot}-\bar{Y}_{\cdot\cdot\cdot}$ minimize the  squared error.
+
+
+
+***
+
+(8)
+Consider the following models 
+\begin{equation}\label{eqn:cellmeans}
+Y_{i,j,k}=\mu_{i,j}+\epsilon_{i,j,k}, \ k=1,\ldots, n, i =1,\ldots, a, j=1,\ldots, b, 
+\end{equation}
+and 
+\begin{equation}\label{eqn:reg}
+Y_{i,j,k}= \sum_{l=1}^a \sum_{m=1}^b \beta_{l,m} X_{l,m;i,j,k}+\epsilon_{i,j,k}, \ k=1,\ldots, n, i =1,\ldots, a, j=1,\ldots, b,
+\end{equation}
+where $\{\epsilon_{i,j,k}\}$ are i.i.d. $N(0,\sigma^2)$ and $X_{l,m;i,j,k}=1$ when $(l,m)=(i,j)$ and $X_{l,m;i,j,k}=0$ otherwise. Express $\{\beta_{l,m}: l=1,\ldots, a; m=1,\ldots, b\}$ using $\{\mu_{i,j}: i=1,\ldots, a; j=1,\ldots, b\}$.
+
+<span style="color:blue"> **Solution** </span>
+
+
+
+We can see  that $Y_{i,j,k}= \beta_{i,j} +\epsilon_{i,j,k} = \mu_{i,j}+\epsilon_{i,j,k}$. Therefore, we can see that $\beta_{i,j}=\mu_{i,j}$ for any $i$ and $j$.
+
+
+
+
+
+***
+
+(9) 
+With some abuse of notation, we rewrite the regression model from Part 8 as 
+\begin{equation}\label{eqn:reg_new}
+Y= X\beta + \epsilon,
+\end{equation}
+where $Y$ is a $n_T$-dimensional vector, $X$ is an $n_T \times p$ matrix, $\beta$ is a $p$-dimensional vector, and $\{\epsilon\} \sim {\rm MVN}(0, \sigma^2 {\rm I})$, i.e., multivariate normal with covariance matrix $\sigma^2 {\rm I}$. Express the residual sum of squares and explained sum of squares in $Y$ and $X$, and then show that these two sum of squares are independent. 
+
+
+
+<span style="color:blue"> **Solution** </span>
+
+
+
+It is known that $\hat{\beta}= (X^T X)^{-1} X^T Y$. We then have $\hat{Y}= X (X^T X)^{-1} X^T Y \equiv H Y$ Therefore, we have $e= Y- X \hat{\beta}= (I- H)Y$. Therefore, we can write down the two sums of squares as 
+$${\rm SSE}= e^T e= Y^T(I-H)Y \ {\rm and} \ {\rm SSR} = Y^T (H-  J_{n})Y,$$
+where $H= X (X^T X)^{-1} X^T$ and $J_n$ is an $n_T \times n_T$ matrix of $1/n_{T}$'s. 
+
+Then, we have that 
+$${\rm cov}( \hat{Y}, e  ) =  {\rm cov}( HY,(I- H)Y  )=H{\rm cov}( Y,Y  ) (I-H)^T=0,$$
+where we use the fact that $H(I-H)^T = H(I-H)=0$.
+
+We can use a similar approach to show that $J_n Y$ is independent with $e$.  Alternatively, we can see that the columns of $J_n$ are in the column space of $X$, i.e., $J_n =X J_n$, where we use the fact that there is one and only one unity (i.e., $1$) in each row of $X$. We can thus see that $(I-H)J_n= (I-H) X J_n=0$.
+
+Therefore, ${\rm cov}( H Y-J_n Y, e  )=0$, and using the normality assumption we know that  $e$ is independent of $(H -J_n) Y$, which implies the independence between the residual sum of squares and the explained sum of squares.
