@@ -1,0 +1,301 @@
+---
+title: "STA 207: Assignment II"
+author: "Elsie Basa - Student ID: 914022828"
+date: "2/22/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = F, warning = F)
+```
+
+```{r}
+library(knitr)
+library(dplyr)
+library(gplots)
+library(lme4)
+
+```
+
+
+```{r, echo = FALSE}
+
+Wage=read.csv('Wage.csv')
+
+attach(Wage, warn.conflicts = F)
+```
+
+
+#1
+
+The two way ANOVA model using the factor-effect form is:
+
+
+$$ Y_{ijk} = \mu_{..} + \alpha_i + \beta_j+ (\alpha\beta)_{ij}+ \epsilon_{ijk} \quad for \space i = 1,..,6 \space,  j = 1,...,3\space and \space \space k=1,..,534$$
+
+
+$Y_{ijk}$ represent the kth subject in the ith occupation and jth ethnicity. 
+
+$\mu_{..}$ represents the mean wage in the population  
+
+$\alpha_i$ is the effect of occupation which are  management ($i=1$), office ($i=2$),sales ($i=3$), services ($i=4$), technical ($i=5$), and worker ($i=6$
+
+$\beta_j$ is the effect of ethnicity which are which are cauc ($j=1$), hispanic ($j=2$), and other ($j=3$).
+
+$\alpha_i\beta_j$ is the interaction effect between the ith occupation and the jth ethnicity.
+
+$\epsilon_{ijk}$ is the error terms, and they capture any unexplained effects on wages.
+
+
+
+where the constraints are:
+$$\sum_i^n\alpha_i = 0\quad,\sum_i^n\beta_j = 0\space \quad, \sum_{j=1}^b (\alpha\beta)_{ij} =\sum_{i=1}^a (\alpha\beta)_{ij}   =0 \space\space \forall i,j$$ 
+
+
+
+
+
+#2
+
+
+A main effects plot for occupation shows that there is a difference in wages between different occupation. Management has the highest mean wage while services have the lowest mean wage.
+
+A main effects plot for ethnicity shows that there is a difference in wages between different ethnicity. Hispanic ethnicity seems to have the lowest mean wage out of the 3. Cauc has the highest mean wage but seems to  have a similar mean wage to the ethnicity group other.
+
+An interaction plot between occupation and ethnicity demonstrates that there might be an interaction between the two since at some points the lines intersect meaning there might be an interaction. However, he slopes of the line are similar suggesting the interaction might not be significant.
+
+
+```{r, echo = FALSE, fig.width=14, fig.height=12}
+
+par(mfrow=c(2,2))
+# Main effect plot for occupation
+plotmeans(wage~occupation,data=Wage, xlab ="Occupation",ylab="Wage",
+          main="Main  effect, Occupation ",cex.lab=1.2) 
+
+plotmeans(wage~ethnicity,data=Wage, xlab ="Ethnicity",ylab="Wage",
+          main="Main  effect, Ethnicity ",cex.lab=1.2) 
+
+#Interaction plot
+interaction.plot(Wage$occupation, Wage$ethnicity, Wage$wage
+                ,cex.lab=1.2,ylab="Wage",xlab='occupation')
+
+```
+
+
+
+
+
+#3
+A type III Anova decomposition is used due to unbalanced design.
+In part 1 the model $Y_{ijk} = \mu + \alpha_i + +\beta_j+ (\alpha\beta)_{ij}+\epsilon_{ijk}$ was considered
+Based on part 2 there looked like there might be an interaction between ethnicity and occupation based on the the interaction plot. However based on the findings of the model the interaction term is not significant when carrying out the F-Test  for interaction at the 0.05 significance level. The p-value of the test is 0.2579 which is greater than 0.05 meaning that the interaction term is not significant in the model.
+
+Moreover based on part 2 there should be a main effects of ethnicity present however, based on the results, the effect of ethnicity is not significant. Using the F-test to test for effects of the ethnicity factor at the 0.05 significance level, the pvalue of the test is 0.131 which is greater than 0.05. Therefore, the effect of ethnicity in the model is not significant.
+
+
+```{r,results='hide'}
+
+car::Anova(aov(wage~ occupation+ethnicity ,data=Wage),type = 2)
+anova.fit<- aov(wage~ occupation+ethnicity,data=Wage)
+anova.fit2<- aov(wage~ occupation+ethnicity + occupation:ethnicity,data=Wage)
+
+car::Anova(anova.fit2,type =3)
+
+#summary of aov()
+summary <- summary(anova.fit) ; summary
+summary2 <- summary(anova.fit2) ; summary2
+```
+
+```{r}
+car::Anova(anova.fit2, type = 3) %>% kable()
+```
+
+
+
+#4
+
+                         
+$$ H_o:  \space \beta_j = 0 \space \forall j \quad vs \quad H_a:\space \text{not all} \space \beta_j \space are \space 0$$
+ 
+ 
+ 
+To test ethnicity's effect on the full data set, a  anova model including occupation  and the interaction term is used.  The F statistic is 1.3994. The F critical value is equal to 2.0004. The p-value of the F-statistic is 0.1619 so, we fail to reject the null hypothesis meaning there is  not significant evidence to conclude that effect of ethnicity is present of the full data set at the 0.01 significance level.
+ 
+```{r}
+
+
+
+
+#alpha = 0.01
+#test for ethnicity effect
+
+
+
+alpha = 0.01
+#x.grid=seq(from=1e-5,to=6,length.out=1000);
+
+
+anova.fit3<- aov(wage~ occupation +ethnicity+ occupation*ethnicity  ,data=Wage)
+
+
+anova.fit4<- aov(wage~ occupation ,data=Wage)
+#summary of aov()
+anova_general_effect <- anova(anova.fit3, anova.fit4) ; anova_general_effect
+# summary3`
+
+
+
+
+
+r=anova.fit3$rank ;n=length(Wage$ethnicity)
+crit.val=qf(1-.01,df1=r-1,df2=n-r);
+fstar = summary(anova.fit3)[[1]][1,4]
+
+```
+
+
+#5
+
+$$ Y_{ijk} = \mu + \alpha_i + \beta_j+\epsilon_{ijk} \quad for \space i = 1,..,6 \space,  j = 1,...,3\space and \space \space k=1,..,534$$
+where and all random variables are mutually independent.
+
+$$ \space\alpha_{\mathrm{i}} \sim \mathrm{N}\left(0, \sigma_\alpha^2\right), \space \beta_{\mathrm{j}} \  \sim \mathrm{N}\left(0, \sigma_{ \beta}^2\right), \space\left\{\epsilon_{\mathrm{ijk}}\right\} \sim \mathrm{N}\left(0, \sigma^2\right)$$
+
+
+
+
+
+
+#6
+
+The variances of the random effect model are $\sigma_\alpha^2$ = 6.2280  and  $\sigma_\beta^2$ = 0.3239 and $\sigma^2$ =  21.7670.
+
+The estimate of the proportion of variability that is due to variability in occupation is $\sigma_\alpha^2$/($\sigma_\alpha^2$ + $\sigma_\beta^2$+$\sigma^2$)  = 0.2199238 This indicates  the variation between different occupations are very small, only about 22%.
+
+
+```{r, results='hide'}
+fit.random = lmer(wage ~ (1 | occupation) +  (1 | ethnicity) , data = Wage)
+#fit.anova.red = lm(wage ~ 1, data = Wage)
+#anova(fit.random, fit.anova.red)
+
+summary(fit.random)
+
+
+6.2280/(6.2280+21.7670+0.3239)
+```
+
+
+
+
+#7
+Consider:
+$$Y_{i,j,k}=\mu + \alpha_i+ \beta_j+\epsilon_{i,j,k}, \  i =1,\ldots, a, j=1,\ldots, b, k=1,\ldots, n$$
+
+The Loss function=
+$$\sum_i\sum_j\sum_k(Y_{ijk} -\mu -\alpha_j - \beta_j )^2 $$
+
+$$\frac{\partial }{\partial  \mu} = -2\sum_i\sum_j\sum_k(Y_{ijk} -\mu -\alpha_j - \beta_j ) = 0 $$
+
+
+$$\mu=\frac{\sum_{i=1}^a \sum_{j=1}^b \sum_{k=1}^n Y_{i j k}-\sum_i \alpha_i-\sum_j \beta_j}{a b} \rightarrow \hat{\mu}=\bar{Y}_{\ldots} $$
+
+$$\alpha_i=\frac{\sum_{j=1}^b \sum_{k=1}^n Y_{i j k}-b n \mu-\sum_j \beta_j}{b n}=\bar{Y}_{i . .}-\mu \rightarrow \hat{\alpha}_i=\bar{Y}_{i . .}-\hat{\mu}   $$
+$$\hat{\alpha} = \bar{Y}_{i . .}- \bar{Y}_{\ldots}$$
+
+$$\beta_j=\frac{\sum_{i=1}^a \sum_{k=1}^n Y_{i j k}-a n \mu-\sum_i \alpha_i}{a n}=\bar{Y}_{. j .}-\mu \rightarrow \hat{\beta}_j=\bar{Y}_{. j .}-\hat{\mu}$$
+
+$$ \hat{\beta}_j= \bar{Y}_{. j .} - \bar{Y}_{\ldots}$$
+
+
+
+
+Moreover the second derivative of each of them are positive 
+
+$$\frac{\partial^2 }{\partial^2  \mu} = 2 $$
+
+$$\frac{\partial^2 }{\partial^2 \alpha} = 2 $$
+
+
+
+$$\frac{\partial^2 }{\partial^2  \beta} = 2 $$
+
+
+
+
+#8
+
+Consider the following models 
+\begin{equation}\label{eqn:cellmeans}
+Y_{i,j,k}=\mu_{i,j}+\epsilon_{i,j,k}, \ k=1,\ldots, n, i =1,\ldots, a, j=1,\ldots, b, 
+\end{equation}
+and 
+\begin{equation}\label{eqn:reg}
+Y_{i,j,k}= \sum_{l=1}^a \sum_{m=1}^b \beta_{l,m} X_{l,m;i,j,k}+\epsilon_{i,j,k}, \ k=1,\ldots, n, i =1,\ldots, a, j=1,\ldots, b,
+\end{equation}
+
+where $\{\epsilon_{i,j,k}\}$ are i.i.d. $N(0,\sigma^2)$ and $X_{l,m;i,j,k}=1$ when $(l,m)=(i,j)$ and $X_{l,m;i,j,k}=0$ otherwise.
+
+
+$$Y_{i,j,k}=\mu_{i,j}+\epsilon_{i,j,k} = \sum_{l=1}^a \sum_{m=1}^b \beta_{l,m} X_{l,m;i,j,k}+\epsilon_{i,j,k}$$
+
+$$= \sum_{l=1}^a \sum_{m=1}^b \beta_{l,m} X_{l,m;i,j,k} =\mu_{i,j} $$
+
+Using the fact that when $(l,m)=(i,j)$  $X_{l,m;i,j,k}$ = 1 or otherwise  $X_{l,m;i,j,k}$ = 0
+
+
+$$= \sum_{l=1}^a \sum_{m=1}^b\beta_{l,m} X_{l,m;i,j,k} = \beta_{l,m} +0 +...+0  = \mu_{i,j} $$
+
+$$ \beta_{l,m} = \mu_{i,j}$$
+
+
+
+#9
+
+\begin{equation}\label{eqn:reg_new}
+Y= X\beta + \epsilon,
+\end{equation}
+
+
+where $Y$ is a $n_T$-dimensional vector, $X$ is an $n_T \times p$ matrix, $\beta$ is a $p$-dimensional vector
+Also $\{\epsilon\} \sim {\rm MVN}(0, \sigma^2 {\rm I})$, i.e., multivariate normal with covariance matrix $\sigma^2 {\rm I}$.
+
+
+Where $\hat{\beta}_{OLS}= (X^T X)^{-1} X^T Y$. We then have $\hat{Y}= X (X^T X)^{-1} X^T Y \equiv P_X Y$ and $e = Y-\hat{Y}= Y- X \hat{\beta}= (I- P_X)Y$. 
+
+
+We can write the residual sum of Sqaure (SSE) and explained sum of square in terms of X and Y as:
+
+$${\rm SSE}= e^T e= Y^T(I-P_X)Y \ {\rm and} \ {\rm SSR} = Y^T (P_X-P_1)Y$$
+Where
+$$P_1=\mathbf{1}(\mathbf{1}^T\mathbf{1})^{-1} \mathbf{1}^T=\mathbf{1}\mathbf{1}^T/n_T, \mathbf{1}=(1,...,1)^T_{n_T}$$
+and $P_X, P_1,I-P_X,P_X-P_1$ are orthogonal projectors
+
+
+
+Some properties of orthogonal matrices:
+$$P_X^T=P_X,P_X^TP_X=P_X, P_X^2=P_X$$
+Show that the covariance is equal to 0:
+
+$$cov((I-P_X)Y,(P_X-P_1)Y)$$
+$$= Ycov(IP_X-IP_1-P_XP_X+P_XP_1)Y^T$$
+$$= Ycov(P_X-P_1-P_X+P_1)Y^T$$
+$$= Ycov(0)Y^T$$
+Therefore,
+$$cov((I-P_X)Y,(P_X-P_1)Y) = 0$$
+Also, under the normality assumption uncorrelated random variables are also independent.
+
+
+
+### Acknowledgement 
+discussed assignment 2 with TAs, professor, Shirley Lin, Sehee Han, Monica Orme ,and Lulu Xue
+
+
+
+
+### Session information
+```{r}
+sessionInfo()
+```
+
+
+
